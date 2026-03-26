@@ -8,6 +8,8 @@ user_invocable: true
 
 Pick up where the last session left off by reading its transcript and any handoff note.
 
+**IMPORTANT**: This skill uses the `AskUserQuestion` tool for all user interactions — setup, session picking, and confirmation. Never use plain text prompts to ask the user to choose.
+
 ## Step 0 — Check configuration
 
 Read `~/.claude/skills/continue/config.json`. If it does **not** exist, run **First-time setup** (below). If it exists, use its `label_mode` value and skip to Step 1.
@@ -16,15 +18,25 @@ If `$ARGUMENTS` contains `--setup`, run First-time setup even if config already 
 
 ### First-time setup
 
-Ask the user how they want sessions labeled in the picker. Present these options:
+Use `AskUserQuestion` to ask the user how they want sessions labeled:
 
-1. **first_message** — First user message (what kicked off the session)
-2. **last_message** — Last user message (where things ended)
-3. **ai_summary** — AI-generated one-line summary (reads first ~10 messages, slower)
-4. **combo** — First message as title + last message as subtitle (two lines per entry)
-5. **Custom** — Let the user describe their own format
+```
+question: "How should sessions be labeled in the picker?"
+header: "Label format"
+options:
+  - label: "First message"
+    description: "What kicked off the session, e.g. 'create a skill (in global dir)'"
+  - label: "Last message"
+    description: "Where things ended, e.g. 'update this skill to list 5 latest...'"
+  - label: "AI summary"
+    description: "One-line AI-generated summary (slower — reads first ~10 messages)"
+  - label: "First + last combo"
+    description: "First message as title, last message as subtitle (two lines per entry)"
+```
 
-Once the user chooses, write `~/.claude/skills/continue/config.json`:
+The user can also pick "Other" to describe a custom format.
+
+Once chosen, write `~/.claude/skills/continue/config.json`:
 
 ```json
 {
@@ -33,7 +45,7 @@ Once the user chooses, write `~/.claude/skills/continue/config.json`:
 }
 ```
 
-For custom mode, store the user's description in `custom_instructions`.
+Valid `label_mode` values: `first_message`, `last_message`, `ai_summary`, `combo`. For custom, set `label_mode` to `"custom"` and store the user's description in `custom_instructions`.
 
 Then continue to Step 1.
 
@@ -51,21 +63,30 @@ Find the **5 most recently modified `.jsonl` files**. For each, extract:
   - `first_message`: first non-meta `user` type message → `message.content` (truncate to 60 chars)
   - `last_message`: last non-meta `user` type message → `message.content` (truncate to 60 chars)
   - `ai_summary`: read first ~10 user/assistant text messages, generate a one-line summary
-  - `combo`: first message as title, last message as `└─ last:` subtitle
+  - `combo`: use first message as label, append ` → last: <last msg>` in description
   - custom: follow `custom_instructions` from config
 
-Present a numbered list:
+### Present via AskUserQuestion
+
+Use `AskUserQuestion` to let the user pick a session. Map each session to an option:
 
 ```
-## Recent Sessions
-1. [Mar 26 09:48] create a skill (in global dir)
-2. [Mar 26 06:46] check latest claude session and continue...
-3. [Mar 25 10:38] check handoff note to continue work...
-4. [Mar 26 08:44] /continue
-5. [Mar 25 13:50] check why /compact skill doesn't work
+question: "Which session do you want to continue?"
+header: "Session"
+options:
+  - label: "[Mar 26 09:48] create a skill (in global dir)"
+    description: "Session abc123 · 190KB"
+  - label: "[Mar 26 06:46] check latest claude session and..."
+    description: "Session def456 · 5.9MB"
+  - label: "[Mar 25 10:38] check handoff note to continue..."
+    description: "Session ghi789 · 2.7MB"
+  - label: "[Mar 25 13:50] check why /compact skill doesn't..."
+    description: "Session jkl012 · 314KB"
 ```
 
-Ask the user which session to continue (number). If `$ARGUMENTS` contains a number (1-5), use that directly without asking.
+Note: AskUserQuestion supports max 4 options. Show the 4 most recent sessions as options. The user can pick "Other" to specify a session ID or request more.
+
+If `$ARGUMENTS` contains a number (1-4), skip the picker and use that session directly.
 
 ## Step 2 — Check for a handoff note
 
@@ -107,9 +128,21 @@ Show the user:
 - **Handoff note**: <if found, show it>
 ```
 
-Then ask: **"Ready to continue? Here's what I'd pick up next: [specific next action]. Should I proceed?"**
+Then use `AskUserQuestion` to confirm next steps:
 
-If `$ARGUMENTS` contains `--auto`, skip the confirmation and start working immediately on the most important remaining item.
+```
+question: "How should I continue?"
+header: "Next step"
+options:
+  - label: "<specific next action inferred from session>"
+    description: "Pick up the most important remaining item"
+  - label: "Show full transcript context"
+    description: "Display more detail before deciding"
+  - label: "Do nothing"
+    description: "Just wanted the summary, don't continue any work"
+```
+
+If `$ARGUMENTS` contains `--auto`, skip this confirmation and start working immediately on the most important remaining item.
 
 ## Notes
 
