@@ -1,6 +1,6 @@
-# /continue
+## /continue
 
-Pick up where your last Claude Code session left off.
+Lists 5 latest sessions, you choose, it reads session's transcript, any handoff notes and continues work.
 
 ## Install
 
