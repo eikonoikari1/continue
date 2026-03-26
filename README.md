@@ -5,7 +5,7 @@ Lists 5 latest sessions, you choose, it reads session's transcript, any handoff 
 ## Install
 
 ```bash
-git clone https://github.com/eikonoikari1/claude-skill-continue.git ~/.claude/skills/continue
+git clone https://github.com/eikonoikari1/continue.git ~/.claude/skills/continue
 ```
 
 ## Usage
